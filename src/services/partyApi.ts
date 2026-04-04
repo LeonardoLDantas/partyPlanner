@@ -1,5 +1,6 @@
 import { Party } from '../types';
 import { apiBaseUrl } from '../config/api';
+import { getAccessToken } from './sessionStorage';
 
 type CreatePartyInput = {
   name: string;
@@ -27,9 +28,11 @@ type CreateBudgetItemInput = {
 };
 
 async function requestJson<T>(path: string, init?: RequestInit) {
+  const accessToken = getAccessToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,

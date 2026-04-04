@@ -40,8 +40,8 @@ Depois:
 
 Por padrao o app usa:
 
-- Android emulator: `http://10.0.2.2:5112`
-- Web e iOS simulator: `http://localhost:5112`
+- Android/iPhone na mesma rede: `http://192.168.3.70:5112`
+- Web no computador: `http://localhost:5112`
 
 Para sobrescrever:
 

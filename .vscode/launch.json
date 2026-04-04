@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Expo Start",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm.cmd run start",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Expo Start (Task / F5)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "setInterval(() => {}, 1 << 30)"
+      ],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "npm: start",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
+}

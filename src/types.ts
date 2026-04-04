@@ -42,3 +42,19 @@ export type RoadmapStage = {
   description: string;
   status: 'Concluida' | 'Em andamento' | 'Planejada';
 };
+
+export type AuthenticatedUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type AuthSession = {
+  accessToken: string;
+  expiresAtUtc: string;
+  user: AuthenticatedUser;
+};
+
+export type NotificationSettings = {
+  informationalEnabled: boolean;
+};
