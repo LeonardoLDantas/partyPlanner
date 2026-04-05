@@ -57,3 +57,16 @@ npm.cmd run start
 ## Proxima etapa recomendada
 
 Publicar o backend PostgreSQL e gerar um novo APK apontando para a API publica.
+
+## Deploy automatico
+
+O projeto mobile agora pode disparar build Android automatico no Expo/EAS a cada
+push para `main` usando o workflow:
+
+- [.github/workflows/eas-build-android.yml](C:/Users/luizd/Documentos/Github/partyPlanner/.github/workflows/eas-build-android.yml)
+
+Para funcionar no GitHub, configure o secret:
+
+- `EXPO_TOKEN`
+
+No backend publicado no Render, deixe `Auto-Deploy` ligado para a branch `main`.
