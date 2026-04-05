@@ -43,7 +43,8 @@ Em desenvolvimento, por padrao o app usa:
 - Android/iPhone na mesma rede: `http://192.168.3.70:5112`
 - Web no computador: `http://localhost:5112`
 
-Em producao, o app espera a URL publica configurada em `EXPO_PUBLIC_API_URL`.
+Em producao, o app espera a URL publica configurada em `EXPO_PUBLIC_API_URL`,
+por exemplo `https://partyplanner-backend-efxs.onrender.com`.
 O arquivo [.env.example](C:/Users/luizd/Documentos/Github/partyPlanner/.env.example) mostra o formato esperado.
 
 Para sobrescrever localmente:

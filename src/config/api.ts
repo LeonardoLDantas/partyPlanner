@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 const lanBaseUrl = 'http://192.168.3.70:5112';
-const productionFallbackUrl = 'https://partyplanner-backend.onrender.com';
+const productionFallbackUrl = 'https://partyplanner-backend-efxs.onrender.com';
 
 function adaptLocalhost(url: string) {
   if (Platform.OS === 'android') {
