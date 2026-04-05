@@ -22,7 +22,7 @@ reutilizavel para iOS.
 - Leitura real das festas via API
 - Criacao de festa, tarefa, convidado e despesa via backend
 - Toggle de tarefa integrado com o backend
-- URL da API adaptada para Android emulator e web
+- URL da API adaptada para ambiente local e backend publicado
 
 ## Como rodar o app mobile
 
@@ -38,19 +38,21 @@ Depois:
 
 ## URL da API
 
-Por padrao o app usa:
+Em desenvolvimento, por padrao o app usa:
 
 - Android/iPhone na mesma rede: `http://192.168.3.70:5112`
 - Web no computador: `http://localhost:5112`
 
-Para sobrescrever:
+Em producao, o app espera a URL publica configurada em `EXPO_PUBLIC_API_URL`.
+O arquivo [.env.example](C:/Users/luizd/Documentos/Github/partyPlanner/.env.example) mostra o formato esperado.
+
+Para sobrescrever localmente:
 
 ```bash
-$env:EXPO_PUBLIC_API_URL="http://SEU-IP:5112"
+$env:EXPO_PUBLIC_API_URL="https://SUA-API-PUBLICA"
 npm.cmd run start
 ```
 
 ## Proxima etapa recomendada
 
-Executar o backend novo com a `WebApi` em `src` e aplicar as migrations no SQL
-Server Docker.
+Publicar o backend PostgreSQL e gerar um novo APK apontando para a API publica.
