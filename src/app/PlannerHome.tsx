@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import Feather from '@expo/vector-icons/Feather';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,8 +18,9 @@ import {
 
 import { roadmapStages } from '../constants/roadmap';
 import { apiBaseUrl } from '../config/api';
+import { notificationsApi } from '../services/notificationsApi';
 import { partyApi } from '../services/partyApi';
-import { AuthSession, GuestStatus, Party } from '../types';
+import { AppNotification, AuthSession, GuestStatus, Party } from '../types';
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -26,6 +28,7 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
 });
 
 const guestStatuses: GuestStatus[] = ['Confirmado', 'Pendente', 'Recusou'];
+const topBarOffset = 76;
 
 type PlannerSection = 'Painel' | 'Planejar' | 'Operacao' | 'Ajustes';
 type PartyForm = { name: string; category: string; date: string; location: string; estimatedBudget: string };
@@ -63,6 +66,8 @@ export function PlannerHome({
   const [taskForm, setTaskForm] = useState<TaskForm>(emptyTaskForm);
   const [guestForm, setGuestForm] = useState<GuestForm>(emptyGuestForm);
   const [budgetForm, setBudgetForm] = useState<BudgetForm>(emptyBudgetForm);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -84,6 +89,7 @@ export function PlannerHome({
     selectedParty && selectedParty.budget.estimated > 0
       ? Math.round((selectedParty.budget.spent / selectedParty.budget.estimated) * 100)
       : 0;
+  const unreadNotifications = notifications.filter((notification) => !notification.isRead).length;
 
   useEffect(() => {
     async function loadParties() {
@@ -104,6 +110,19 @@ export function PlannerHome({
   }, []);
 
   useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const remoteNotifications = await notificationsApi.getAll();
+        setNotifications(remoteNotifications);
+      } catch {
+        // Ignore notification feed issues so the main planner stays usable.
+      }
+    }
+
+    loadNotifications();
+  }, []);
+
+  useEffect(() => {
     Animated.timing(menuAnimation, {
       toValue: menuOpen ? 1 : 0,
       duration: 260,
@@ -119,6 +138,15 @@ export function PlannerHome({
         : [updatedParty, ...current]
     );
     setSelectedPartyId(updatedParty.id);
+  }
+
+  async function refreshNotifications() {
+    try {
+      const remoteNotifications = await notificationsApi.getAll();
+      setNotifications(remoteNotifications);
+    } catch {
+      // Ignore notification refresh failures after mutations.
+    }
   }
 
   async function handleCreateParty() {
@@ -137,6 +165,7 @@ export function PlannerHome({
       setPartyForm(emptyPartyForm);
       setActiveSection('Painel');
       onInformationalEvent(`Festa "${nextParty.name}" criada com sucesso.`);
+      await refreshNotifications();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel criar a festa.');
     } finally {
@@ -152,6 +181,7 @@ export function PlannerHome({
       syncParty(await partyApi.createTask(selectedParty.id, taskForm));
       setTaskForm(emptyTaskForm);
       onInformationalEvent('Tarefa adicionada com sucesso.');
+      await refreshNotifications();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel criar a tarefa.');
     } finally {
@@ -167,6 +197,7 @@ export function PlannerHome({
       syncParty(await partyApi.createGuest(selectedParty.id, guestForm));
       setGuestForm(emptyGuestForm);
       onInformationalEvent('Convidado salvo com sucesso.');
+      await refreshNotifications();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel criar o convidado.');
     } finally {
@@ -184,6 +215,7 @@ export function PlannerHome({
       syncParty(await partyApi.createBudgetItem(selectedParty.id, { ...budgetForm, amount }));
       setBudgetForm(emptyBudgetForm);
       onInformationalEvent('Despesa adicionada com sucesso.');
+      await refreshNotifications();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel criar a despesa.');
     } finally {
@@ -198,6 +230,7 @@ export function PlannerHome({
       setErrorMessage('');
       syncParty(await partyApi.toggleTask(selectedParty.id, taskId));
       onInformationalEvent('Status da tarefa atualizado.');
+      await refreshNotifications();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel atualizar a tarefa.');
     } finally {
@@ -212,8 +245,7 @@ export function PlannerHome({
     { id: 'Ajustes', icon: 'A', title: 'Ajustes' },
   ];
 
-  const sidebarWidth = Math.min(168, width * 0.44);
-  const contentShift = Math.max(112, sidebarWidth - 10);
+  const sidebarWidth = Math.min(228, width * 0.64);
 
   const sidebarTranslateX = menuAnimation.interpolate({
     inputRange: [0, 1],
@@ -222,13 +254,30 @@ export function PlannerHome({
 
   const contentTranslateX = menuAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, contentShift],
+    outputRange: [0, sidebarWidth],
   });
+
+  async function handleNotificationPress() {
+    const nextOpen = !notificationsOpen;
+    setNotificationsOpen(nextOpen);
+
+    if (nextOpen && unreadNotifications > 0) {
+      await notificationsApi.markAllAsRead().catch(() => null);
+      await refreshNotifications();
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.layout}>
+        <Animated.View
+          pointerEvents={menuOpen ? 'auto' : 'none'}
+          style={[styles.backdrop, { left: sidebarWidth, opacity: menuAnimation }]}
+        >
+          <Pressable style={styles.backdropTouch} onPress={() => setMenuOpen(false)} />
+        </Animated.View>
+
         <Animated.View
           pointerEvents={menuOpen ? 'auto' : 'none'}
           style={[
@@ -241,6 +290,16 @@ export function PlannerHome({
           ]}
         >
           <View style={styles.sidebarHeader}>
+            <Pressable
+              style={styles.sidebarHamburger}
+              onPress={() => setMenuOpen(false)}
+            >
+              <View style={styles.sidebarHamburgerLines}>
+                <View style={styles.sidebarHamburgerLine} />
+                <View style={styles.sidebarHamburgerLine} />
+                <View style={styles.sidebarHamburgerLine} />
+              </View>
+            </Pressable>
             <Text style={styles.brand}>Party Planner</Text>
           </View>
 
@@ -266,30 +325,81 @@ export function PlannerHome({
               );
             })}
           </View>
+
+          <View style={styles.sidebarFooter}>
+            <Pressable style={styles.sidebarLogoutButton} onPress={onLogout}>
+              <Text style={styles.sidebarLogoutLabel}>Sair da conta</Text>
+            </Pressable>
+          </View>
         </Animated.View>
 
         <Animated.View
           style={[
             styles.mainStage,
-            {
-              transform: [{ translateX: contentTranslateX }],
-            },
+            styles.mainStageOpen,
+            { transform: [{ translateX: contentTranslateX }] },
           ]}
         >
-          <ScrollView style={styles.mainContent} contentContainerStyle={styles.content}>
-          <View style={styles.topBar}>
+          {notificationsOpen ? (
             <Pressable
-              style={styles.hamburger}
-              onPress={() => setMenuOpen((current) => !current)}
-            >
-              <View style={styles.hamburgerLines}>
-                <View style={styles.hamburgerLine} />
-                <View style={styles.hamburgerLine} />
-                <View style={styles.hamburgerLine} />
-              </View>
-            </Pressable>
+              style={styles.notificationsBackdrop}
+              onPress={() => setNotificationsOpen(false)}
+            />
+          ) : null}
+          <View style={styles.topBar}>
+            {!menuOpen ? (
+              <Pressable
+                style={styles.hamburger}
+                onPress={() => setMenuOpen((current) => !current)}
+              >
+                <View style={styles.hamburgerLines}>
+                  <View style={styles.hamburgerLine} />
+                  <View style={styles.hamburgerLine} />
+                  <View style={styles.hamburgerLine} />
+                </View>
+              </Pressable>
+            ) : (
+              <View style={styles.hamburgerPlaceholder} />
+            )}
             <Text style={styles.topBarLabel}>{activeSection}</Text>
+            <Pressable style={styles.bellButton} onPress={handleNotificationPress}>
+              <Feather name="bell" size={20} color="#27476f" />
+              {unreadNotifications > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{Math.min(unreadNotifications, 9)}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
+          {notificationsOpen ? (
+            <View style={styles.notificationsPanel}>
+              <View style={styles.notificationsHeader}>
+                <Text style={styles.notificationsTitle}>Notificacoes</Text>
+                <Text style={styles.notificationsMeta}>{notifications.length} itens</Text>
+              </View>
+              <ScrollView
+                style={styles.notificationsList}
+                showsVerticalScrollIndicator={false}
+              >
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <View key={notification.id} style={styles.notificationCard}>
+                      <Text style={styles.notificationCardTitle}>{notification.title}</Text>
+                      <Text style={styles.notificationCardMessage}>{notification.message}</Text>
+                      <Text style={styles.notificationCardMeta}>
+                        {new Date(notification.createdAtUtc).toLocaleString('pt-BR')}
+                      </Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.notificationEmpty}>
+                    <Text style={styles.notificationEmptyText}>Nenhuma notificacao ainda.</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          ) : null}
+          <ScrollView style={styles.mainContent} contentContainerStyle={styles.content}>
           <View style={styles.heroCard}>
             <Text style={styles.overline}>Party Planner</Text>
             <Text style={styles.heroTitle}>Navbar lateral esquerda expansivel</Text>
@@ -519,48 +629,168 @@ export function PlannerHome({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#efe7dc' },
   layout: { flex: 1 },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    top: topBarOffset,
+    backgroundColor: 'rgba(15, 27, 43, 0.12)',
+    zIndex: 3,
+  },
+  backdropTouch: { flex: 1 },
   sidebarPanel: {
     position: 'absolute',
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: '#18293e',
+    backgroundColor: 'rgba(24, 41, 62, 0.92)',
     paddingHorizontal: 18,
     paddingTop: 24,
     paddingBottom: 20,
-    zIndex: 1,
+    zIndex: 4,
   },
-  sidebarHeader: { paddingBottom: 18 },
+  sidebarHeader: {
+    paddingBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   mainStage: {
     flex: 1,
     backgroundColor: '#efe7dc',
     zIndex: 2,
-    shadowColor: '#0f1b2b',
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    shadowOffset: { width: -4, height: 0 },
-    elevation: 12,
   },
+  mainStageOpen: { zIndex: 2 },
   mainContent: { flex: 1 },
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  topBar: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    zIndex: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   topBarLabel: { color: '#1f3a5f', fontSize: 15, fontWeight: '800' },
+  bellButton: {
+    marginLeft: 'auto',
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: '#ef7b45',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  bellBadgeText: { color: '#fffaf3', fontSize: 10, fontWeight: '800' },
+  notificationsBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    top: topBarOffset,
+    zIndex: 5,
+  },
+  notificationsPanel: {
+    position: 'absolute',
+    top: topBarOffset + 6,
+    right: 20,
+    width: 320,
+    maxWidth: '84%',
+    maxHeight: 360,
+    backgroundColor: '#fffaf3',
+    borderRadius: 24,
+    padding: 18,
+    zIndex: 6,
+    borderWidth: 1,
+    borderColor: '#eadfce',
+    shadowColor: '#122033',
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  notificationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  notificationsTitle: { color: '#1d2433', fontSize: 18, fontWeight: '800' },
+  notificationsMeta: { color: '#6e6a67', fontSize: 12, fontWeight: '700' },
+  notificationsList: { maxHeight: 300 },
+  notificationCard: {
+    backgroundColor: '#f8f3ec',
+    borderRadius: 18,
+    padding: 14,
+    gap: 6,
+    marginBottom: 10,
+  },
+  notificationCardTitle: { color: '#1d2433', fontSize: 14, fontWeight: '800' },
+  notificationCardMessage: { color: '#4d4b49', fontSize: 13, lineHeight: 19 },
+  notificationCardMeta: { color: '#8a8378', fontSize: 11, fontWeight: '700' },
+  notificationEmpty: {
+    backgroundColor: '#f8f3ec',
+    borderRadius: 18,
+    padding: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationEmptyText: { color: '#6e6a67', fontSize: 13, fontWeight: '700' },
   hamburger: {
     paddingVertical: 6,
     paddingHorizontal: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  hamburgerPlaceholder: { width: 20 },
   hamburgerLines: { gap: 3, alignItems: 'center', justifyContent: 'center' },
   hamburgerLine: { width: 18, height: 2.5, borderRadius: 999, backgroundColor: '#1f3a5f' },
+  sidebarHamburger: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 250, 243, 0.08)',
+  },
+  sidebarHamburgerLines: { gap: 3, alignItems: 'center', justifyContent: 'center' },
+  sidebarHamburgerLine: {
+    width: 16,
+    height: 2.5,
+    borderRadius: 999,
+    backgroundColor: '#fffaf3',
+  },
   brand: { color: '#f3d8a6', fontSize: 20, fontWeight: '800', paddingHorizontal: 4 },
   sidebarList: { gap: 10 },
+  sidebarFooter: { marginTop: 'auto', paddingTop: 20 },
+  sidebarLogoutButton: {
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(243, 216, 166, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(243, 216, 166, 0.28)',
+  },
+  sidebarLogoutLabel: {
+    color: '#f3d8a6',
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   sidebarItem: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, paddingHorizontal: 10, paddingVertical: 12 },
   sidebarItemActive: { backgroundColor: '#ef7b45' },
   sidebarIcon: { color: '#d7dfeb', fontSize: 15, fontWeight: '800', width: 22, textAlign: 'center' },
   sidebarIconActive: { color: '#fffaf3' },
   sidebarLabel: { color: '#fffaf3', fontSize: 14, fontWeight: '800' },
   sidebarLabelActive: { color: '#fffaf3' },
-  content: { padding: 20, gap: 20, paddingBottom: 30, minHeight: '100%' },
+  content: { padding: 20, paddingTop: topBarOffset, gap: 20, paddingBottom: 30, minHeight: '100%' },
   heroCard: { backgroundColor: '#1f3a5f', borderRadius: 28, padding: 24, gap: 12 },
   overline: { color: '#f3d8a6', fontSize: 12, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
   heroTitle: { color: '#fffaf3', fontSize: 30, fontWeight: '800', lineHeight: 36 },

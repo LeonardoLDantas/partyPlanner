@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  SafeAreaView,
+  StatusBar as NativeStatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
+import Toast from 'react-native-toast-message';
 
 import { authApi } from '../services/authApi';
 import {
@@ -12,11 +20,11 @@ import { AuthScreen } from './AuthScreen';
 import { PlannerHome } from './PlannerHome';
 
 export function PartyPlannerApp() {
+  const androidTopInset = Platform.OS === 'android' ? NativeStatusBar.currentHeight ?? 0 : 0;
   const [session, setSession] = useState<AuthSession | null>(null);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     informationalEnabled: true,
   });
-  const [notificationMessage, setNotificationMessage] = useState('');
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   useEffect(() => {
@@ -43,21 +51,18 @@ export function PartyPlannerApp() {
     bootstrap();
   }, []);
 
-  useEffect(() => {
-    if (!notificationMessage) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => setNotificationMessage(''), 3200);
-    return () => clearTimeout(timeoutId);
-  }, [notificationMessage]);
-
   function pushInfo(message: string) {
     if (!notificationSettings.informationalEnabled) {
       return;
     }
 
-    setNotificationMessage(message);
+    Toast.show({
+      type: 'success',
+      text1: 'Party Planner',
+      text2: message,
+      position: 'top',
+      visibilityTime: 3200,
+    });
   }
 
   async function handleAuthenticated(nextSession: AuthSession) {
@@ -78,15 +83,19 @@ export function PartyPlannerApp() {
     await saveNotificationSettings(nextSettings);
 
     if (informationalEnabled) {
-      setNotificationMessage('Notificacoes informativas ativadas.');
-    } else {
-      setNotificationMessage('');
+      Toast.show({
+        type: 'success',
+        text1: 'Notificacoes',
+        text2: 'Notificacoes informativas ativadas.',
+        position: 'top',
+        visibilityTime: 2800,
+      });
     }
   }
 
   if (isBootstrapping) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { paddingTop: androidTopInset }]}>
         <View style={styles.loadingCard}>
           <ActivityIndicator size="large" color="#1f3a5f" />
         </View>
@@ -95,13 +104,7 @@ export function PartyPlannerApp() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {notificationMessage ? (
-        <View style={styles.notificationBanner}>
-          <Text style={styles.notificationText}>{notificationMessage}</Text>
-        </View>
-      ) : null}
-
+    <SafeAreaView style={[styles.container, { paddingTop: androidTopInset }]}>
       {session ? (
         <PlannerHome
           session={session}
@@ -113,6 +116,7 @@ export function PartyPlannerApp() {
       ) : (
         <AuthScreen onAuthenticated={handleAuthenticated} />
       )}
+      <Toast />
     </SafeAreaView>
   );
 }
@@ -133,18 +137,5 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: 24,
     alignItems: 'center',
-  },
-  notificationBanner: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    backgroundColor: '#1f3a5f',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  notificationText: {
-    color: '#fffaf3',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

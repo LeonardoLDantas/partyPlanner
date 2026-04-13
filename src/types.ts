@@ -58,3 +58,12 @@ export type AuthSession = {
 export type NotificationSettings = {
   informationalEnabled: boolean;
 };
+
+export type AppNotification = {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAtUtc: string;
+};

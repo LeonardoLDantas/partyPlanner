@@ -99,6 +99,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
               style={styles.input}
               value={name}
               onChangeText={setName}
+              returnKeyType="next"
             />
           ) : null}
 
@@ -110,6 +111,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             style={styles.input}
             value={email}
             onChangeText={setEmail}
+            returnKeyType="next"
           />
 
           <TextInput
@@ -119,6 +121,9 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             style={styles.input}
             value={password}
             onChangeText={setPassword}
+            returnKeyType="go"
+            onSubmitEditing={handleSubmit}
+            blurOnSubmit
           />
 
           {errorMessage ? (
